@@ -1,0 +1,1 @@
+const http = require('http'); http.createServer((req, res) => { res.setHeader('Access-Control-Allow-Origin', '*'); let body = ''; req.on('data', chunk => body += chunk.toString()); req.on('end', () => { console.log('CLIENT ERROR:', body); res.end('ok'); }); }).listen(9999, () => console.log('Error server listening on 9999'));

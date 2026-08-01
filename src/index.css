@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #F9FAFB;
+  --color-foreground: #0A161E;
+  --color-primary: #196F03;
+  --color-primary-foreground: #ffffff;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-border: #e2e8f0;
+  
+  --font-sans: "Outfit", sans-serif;
+  --font-serif: "Playfair Display", serif;
+  
+  --radius: 0.75rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(25, 111, 3, 0.1); /* Faint brand green */
+  }
+
+  :root {
+    --shadow-gourmet: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply shadow-2xl scale-[1.02];
+  }
+
+  .glass-morphism {
+    background: rgba(15, 15, 15, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .micro-caps {
+    @apply text-[10px] font-bold uppercase tracking-widest;
+  }
+}
+
+@keyframes menuItemFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: menuItemFadeUp 0.32s ease-out forwards;
+}
