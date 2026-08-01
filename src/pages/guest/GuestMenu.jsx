@@ -144,7 +144,7 @@ export default function GuestMenu() {
                   <div className="flex justify-between items-start mb-1 gap-1">
                     <h3 className="font-semibold text-sm sm:text-base leading-tight text-foreground line-clamp-2">{item.name}</h3>
                     <span className="font-bold text-primary text-sm sm:text-base shrink-0">
-                      ${item.price.toFixed(2)}
+                      ₹{item.price.toFixed(2)}
                     </span>
                   </div>
                   {item.description && (

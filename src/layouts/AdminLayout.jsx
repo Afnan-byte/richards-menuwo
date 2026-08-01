@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { LayoutDashboard, Menu, FolderTree, DoorOpen, Receipt, LogOut, Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LayoutDashboard, Menu, FolderTree, DoorOpen, Receipt, LogOut, Settings, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../firebase/config';
 import { signOut } from 'firebase/auth';
@@ -20,6 +20,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -38,8 +39,21 @@ export default function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-100 flex flex-col z-20">
+      <aside className={`fixed md:relative w-64 h-full bg-white border-r border-gray-100 flex flex-col z-50 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="py-6 flex flex-col items-center justify-center px-6 border-b border-gray-100 gap-3">
           <img src="/logo.svg" alt="Menuwo Logo" className="h-8 w-auto object-contain" />
           <span className="font-bold text-xl tracking-tight text-primary">Admin Panel</span>
@@ -53,6 +67,7 @@ export default function AdminLayout() {
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group ${
                   isActive 
                     ? 'text-white font-medium scale-[1.02] shadow-xl' 
@@ -88,10 +103,18 @@ export default function AdminLayout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between px-8 z-10">
-          <h2 className="text-lg font-semibold text-muted-foreground capitalize">
-            {location.pathname.split('/').pop() || 'Dashboard'}
-          </h2>
+        <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between px-4 sm:px-8 z-10 shrink-0">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 md:hidden hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-5 h-5 text-foreground" />
+            </button>
+            <h2 className="text-lg font-semibold text-muted-foreground capitalize">
+              {location.pathname.split('/').pop() || 'Dashboard'}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
               A

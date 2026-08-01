@@ -101,9 +101,9 @@ export default function PurchaseManagement() {
       startY: 40,
       head: [['Total Revenue', 'Total Expenses', 'Net Profit']],
       body: [[
-        `₹${financials.totalRevenue.toFixed(2)}`, 
-        `₹${financials.totalExpenses.toFixed(2)}`, 
-        `₹${financials.netProfit.toFixed(2)}`
+        `Rs. ${financials.totalRevenue.toFixed(2)}`, 
+        `Rs. ${financials.totalExpenses.toFixed(2)}`, 
+        `Rs. ${financials.netProfit.toFixed(2)}`
       ]],
       theme: 'grid',
       headStyles: { fillColor: [249, 115, 22] } // orange-500
@@ -138,11 +138,17 @@ export default function PurchaseManagement() {
         t.description,
         t.category,
         t.staff,
-        `${t.amount > 0 ? '+' : ''}₹${t.amount.toFixed(2)}`
+        `${t.amount > 0 ? '+' : ''}Rs. ${Math.abs(t.amount).toFixed(2)}`
       ]),
       theme: 'striped',
       headStyles: { fillColor: [50, 50, 50] },
+      columnStyles: {
+        5: { halign: 'right' }
+      },
       didParseCell: function(data) {
+        if (data.section === 'head' && data.column.index === 5) {
+          data.cell.styles.halign = 'right';
+        }
         if (data.section === 'body' && data.column.index === 5) {
           if (data.cell.raw.startsWith('+')) {
             data.cell.styles.textColor = [22, 163, 74];

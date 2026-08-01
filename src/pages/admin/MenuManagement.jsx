@@ -150,7 +150,7 @@ export default function MenuManagement() {
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-lg text-foreground">{item.name}</h3>
-                    <span className="font-bold text-primary">${Number(item.price).toFixed(2)}</span>
+                    <span className="font-bold text-primary">₹{Number(item.price).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{item.category}</span>
@@ -211,7 +211,7 @@ export default function MenuManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5 text-gray-700">Price ($)</label>
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700">Price (₹)</label>
                     <input
                       type="number"
                       required

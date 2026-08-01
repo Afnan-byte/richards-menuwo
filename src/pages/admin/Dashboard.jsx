@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     { title: 'Total Rooms', value: stats.rooms, icon: DoorOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { title: 'Menu Items', value: stats.menuItems, icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { title: "Total Orders", value: stats.orders, icon: Receipt, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { title: "Total Purchases", value: `$${stats.purchases.toFixed(2)}`, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+    { title: "Total Purchases", value: `₹${stats.purchases.toFixed(2)}`, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-500/10' },
   ];
 
   if (isLoading) {

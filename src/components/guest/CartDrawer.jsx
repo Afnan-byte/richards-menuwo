@@ -12,10 +12,10 @@ export default function CartDrawer({ isOpen, setIsOpen, cart, addToCart, removeF
     let message = `*New Order - Room ${roomId}*\n\n`;
 
     cart.forEach(item => {
-      message += `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}\n`;
+      message += `${item.quantity}x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
     });
 
-    message += `\n*Total: $${totalAmount.toFixed(2)}*`;
+    message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
 
     // Encode for URL
     const encodedMessage = encodeURIComponent(message);
@@ -88,7 +88,7 @@ export default function CartDrawer({ isOpen, setIsOpen, cart, addToCart, removeF
                     )}
                     <div className="flex-1">
                       <h4 className="font-semibold">{item.name}</h4>
-                      <p className="font-bold text-primary">${item.price.toFixed(2)}</p>
+                      <p className="font-bold text-primary">₹{item.price.toFixed(2)}</p>
 
                       <div className="flex items-center gap-4 mt-2">
                         <div className="flex items-center gap-3 bg-primary/10 rounded-full px-1 py-1">
@@ -101,7 +101,7 @@ export default function CartDrawer({ isOpen, setIsOpen, cart, addToCart, removeF
                           </button>
                         </div>
                         <p className="text-sm font-semibold text-muted-foreground ml-auto">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          ₹{(item.price * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -114,7 +114,7 @@ export default function CartDrawer({ isOpen, setIsOpen, cart, addToCart, removeF
               <div className="p-4 border-t bg-background">
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-medium text-muted-foreground">Total</span>
-                  <span className="text-2xl font-bold">${totalAmount.toFixed(2)}</span>
+                  <span className="text-2xl font-bold">₹{totalAmount.toFixed(2)}</span>
                 </div>
 
                 <button

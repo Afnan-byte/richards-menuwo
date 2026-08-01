@@ -55,6 +55,7 @@ export default function RoomManagement() {
   };
 
   const removeRoom = async (id) => {
+    if (!window.confirm("Warning: Deleting this room will permanently invalidate its QR code. Any physical QR stands or printouts you have for this room will no longer work and you will need to replace them. Are you sure you want to proceed?")) return;
     try {
       await deleteRoom(id);
       setRooms(rooms.filter(r => r.id !== id));
