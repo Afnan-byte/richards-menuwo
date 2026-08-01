@@ -40,7 +40,8 @@ export default function AdminLayout() {
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-100 flex flex-col z-20">
-        <div className="h-16 flex items-center px-6 border-b border-gray-100">
+        <div className="py-6 flex flex-col items-center justify-center px-6 border-b border-gray-100 gap-3">
+          <img src="/logo.svg" alt="Menuwo Logo" className="h-8 w-auto object-contain" />
           <span className="font-bold text-xl tracking-tight text-primary">Admin Panel</span>
         </div>
         

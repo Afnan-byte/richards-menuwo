@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Plus, Minus, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -193,6 +193,20 @@ export default function GuestMenu() {
           )}
         </section>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-8 py-8 px-4 w-full">
+        <div className="max-w-4xl mx-auto flex flex-col items-center gap-6">
+          <img src="/logo.svg" alt="Menuwo" className="h-8 w-auto object-contain" />
+          
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-600">
+            <a href="#" className="hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Follow Instagram</a>
+            <a href="#" className="hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Visit Website</a>
+          </div>
+          
+          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Menuwo. All rights reserved.</p>
+        </div>
+      </footer>
 
       {/* Cart Drawer */}
       <CartDrawer

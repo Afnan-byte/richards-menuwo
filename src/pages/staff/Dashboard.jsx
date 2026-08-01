@@ -168,7 +168,7 @@ export default function StaffDashboard() {
         <div className="md:col-span-7 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Recent Purchases</h2>
-            <div className="bg-orange-500/10 text-orange-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2">
               <Receipt className="w-3 h-3" />
               {purchases.length} Records
             </div>
@@ -223,6 +223,20 @@ export default function StaffDashboard() {
         </div>
 
       </main>
+
+      {/* Footer */}
+      <footer className="mt-12 py-8 px-4 w-full">
+        <div className="max-w-4xl mx-auto flex flex-col items-center gap-6">
+          <img src="/logo.svg" alt="Menuwo" className="h-8 w-auto object-contain" />
+          
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-600">
+            <a href="#" className="hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Follow Instagram</a>
+            <a href="#" className="hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Visit Website</a>
+          </div>
+          
+          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Menuwo. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
