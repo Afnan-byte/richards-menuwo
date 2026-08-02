@@ -92,7 +92,7 @@ export default function GuestMenu() {
         roomId,
         items: cart,
         totalAmount,
-        customerPhone
+        customerPhone: `+91${customerPhone.replace(/[^0-9]/g, '')}`
       });
       window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
       setCart([]);
@@ -286,14 +286,19 @@ export default function GuestMenu() {
               <form onSubmit={handleWhatsAppOrder} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1.5 text-gray-700">WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    required
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="e.g. 9876543210"
-                    className="w-full h-12 rounded-xl border border-gray-100 bg-gray-50 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                      <span className="text-gray-500 font-medium sm:text-sm">+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="9876543210"
+                      className="w-full h-12 rounded-xl border border-gray-100 bg-gray-50 pl-12 pr-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all"
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowPhoneModal(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium">Cancel</button>
