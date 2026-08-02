@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPurchases, getOrders } from '../../services/firebaseDb';
+import { getPurchases, getOrders, updateOrderStatus } from '../../services/firebaseDb';
 import { TrendingUp, TrendingDown, DollarSign, Receipt, ShoppingCart, Download, Filter, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
 
 const parseDate = (createdAt) => {
@@ -38,6 +36,25 @@ export default function PurchaseManagement() {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId, customerPhone, status, roomId) => {
+    try {
+      await updateOrderStatus(orderId, status);
+      toast.success(`Order marked as ${status}`);
+      if (customerPhone) {
+        const cleanNumber = customerPhone.replace(/[^0-9]/g, '');
+        let msg = '';
+        if (status === 'delivered') msg = `Hello! Your order for Room ${roomId} has been delivered. Enjoy your meal!`;
+        if (status === 'cancelled') msg = `Hello. Unfortunately, your order for Room ${roomId} has been cancelled. Please contact staff for details.`;
+        const encoded = encodeURIComponent(msg);
+        window.open(`https://wa.me/${cleanNumber}?text=${encoded}`, '_blank');
+      }
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update status');
+      console.error(error);
     }
   };
 
@@ -84,31 +101,7 @@ export default function PurchaseManagement() {
     };
   }, [filteredOrders, filteredPurchases]);
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.text('Financial Report', 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    const filterText = timeFilter === 'all' ? 'All Time' : `This ${timeFilter.charAt(0).toUpperCase() + timeFilter.slice(1)}`;
-    doc.text(`Generated: ${new Date().toLocaleDateString()} | Filter: ${filterText}`, 14, 30);
-    
-    // Summary Table
-    autoTable(doc, {
-      startY: 40,
-      head: [['Total Revenue', 'Total Expenses', 'Net Profit']],
-      body: [[
-        `Rs. ${financials.totalRevenue.toFixed(2)}`, 
-        `Rs. ${financials.totalExpenses.toFixed(2)}`, 
-        `Rs. ${financials.netProfit.toFixed(2)}`
-      ]],
-      theme: 'grid',
-      headStyles: { fillColor: [249, 115, 22] } // orange-500
-    });
-
+  const exportCSV = () => {
     // Combine transactions for the detailed list
     const allTransactions = [
       ...filteredPurchases.map(p => ({
@@ -129,38 +122,34 @@ export default function PurchaseManagement() {
       }))
     ].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 15,
-      head: [['Date', 'Type', 'Description', 'Category', 'Staff', 'Amount']],
-      body: allTransactions.map(t => [
+    let csv = "Financial Summary\n";
+    csv += "Total Revenue,Total Expenses,Net Profit\n";
+    csv += `${financials.totalRevenue.toFixed(2)},${financials.totalExpenses.toFixed(2)},${financials.netProfit.toFixed(2)}\n\n`;
+    
+    csv += "Transactions\n";
+    csv += "Date,Type,Description,Category,Staff,Amount\n";
+    
+    allTransactions.forEach(t => {
+      const row = [
         parseDate(t.date).toLocaleDateString(),
         t.type,
-        t.description,
-        t.category,
-        t.staff,
-        `${t.amount > 0 ? '+' : ''}Rs. ${Math.abs(t.amount).toFixed(2)}`
-      ]),
-      theme: 'striped',
-      headStyles: { fillColor: [50, 50, 50] },
-      columnStyles: {
-        5: { halign: 'right' }
-      },
-      didParseCell: function(data) {
-        if (data.section === 'head' && data.column.index === 5) {
-          data.cell.styles.halign = 'right';
-        }
-        if (data.section === 'body' && data.column.index === 5) {
-          if (data.cell.raw.startsWith('+')) {
-            data.cell.styles.textColor = [22, 163, 74];
-          } else {
-            data.cell.styles.textColor = [220, 38, 38];
-          }
-        }
-      }
+        `"${String(t.description || '').replace(/"/g, '""')}"`,
+        `"${String(t.category || '').replace(/"/g, '""')}"`,
+        `"${String(t.staff || '').replace(/"/g, '""')}"`,
+        t.amount.toFixed(2)
+      ];
+      csv += row.join(",") + "\n";
     });
 
-    doc.save(`Financial_Report_${timeFilter}_${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success('Report downloaded!');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Financial_Report_${timeFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('CSV Export downloaded!');
   };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading analytics...</div>;
@@ -210,10 +199,10 @@ export default function PurchaseManagement() {
 
           {/* Export Button */}
           <button 
-            onClick={exportPDF}
+            onClick={exportCSV}
             className="w-full sm:w-auto flex justify-center items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
           >
-            <Download className="w-4 h-4" /> Export PDF
+            <Download className="w-4 h-4" /> Export CSV
           </button>
         </div>
       </div>
@@ -296,15 +285,44 @@ export default function PurchaseManagement() {
               <div className="space-y-3">
                 <AnimatePresence>
                   {sortedOrders.map(o => (
-                    <motion.div layout initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} key={o.id} className="flex justify-between items-center p-4 border border-gray-100 rounded-xl bg-gray-50/50">
-                      <div>
-                        <h4 className="font-semibold text-foreground">Room {o.roomId}</h4>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{o.items?.length || 0} items</span>
+                    <motion.div layout initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} key={o.id} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-foreground">Room {o.roomId}</h4>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${
+                              o.status === 'delivered' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                              o.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                              'bg-yellow-50 text-yellow-600 border-yellow-100'
+                            }`}>
+                              {o.status || 'pending'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{o.items?.length || 0} items</span>
+                          {o.customerPhone && <span className="ml-2 text-[10px] text-gray-400 font-mono">📞 {o.customerPhone}</span>}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-emerald-600">+₹{Number(o.totalAmount).toFixed(2)}</p>
+                          <p className="text-xs text-gray-400">{parseDate(o.createdAt).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-emerald-600">+₹{Number(o.totalAmount).toFixed(2)}</p>
-                        <p className="text-xs text-gray-400">{parseDate(o.createdAt).toLocaleDateString()}</p>
-                      </div>
+                      
+                      {(!o.status || o.status === 'pending') && (
+                        <div className="flex gap-2 pt-3 border-t border-gray-100">
+                          <button 
+                            onClick={() => handleStatusUpdate(o.id, o.customerPhone, 'delivered', o.roomId)}
+                            className="flex-1 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded text-xs font-bold transition-colors"
+                          >
+                            Mark Delivered
+                          </button>
+                          <button 
+                            onClick={() => handleStatusUpdate(o.id, o.customerPhone, 'cancelled', o.roomId)}
+                            className="flex-1 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-bold transition-colors"
+                          >
+                            Cancel Order
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>

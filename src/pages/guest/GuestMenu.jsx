@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Plus, Minus, Info } from 'lucide-react';
+import { Plus, Minus, Info, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import CartDrawer from '../../components/guest/CartDrawer';
-import { getCategories, getMenuItems, getSettings } from '../../services/firebaseDb';
+import { getCategories, getMenuItems, getSettings, saveOrder } from '../../services/firebaseDb';
 
 export default function GuestMenu() {
   const { roomId } = useParams();
   const [activeCategory, setActiveCategory] = useState('All');
   const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [categories, setCategories] = useState(['All']);
   const [menuItems, setMenuItems] = useState([]);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -65,6 +65,46 @@ export default function GuestMenu() {
   };
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+  const triggerOrderFlow = () => {
+    setShowPhoneModal(true);
+  };
+
+  const handleWhatsAppOrder = async (e) => {
+    e.preventDefault();
+    if (!customerPhone || customerPhone.length < 5) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    let message = `*New Order - Room ${roomId}*\n\n`;
+    cart.forEach(item => {
+      message += `${item.quantity}x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
+    });
+    message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const cleanNumber = whatsappNumber ? whatsappNumber.replace(/[^0-9]/g, '') : '1234567890';
+
+    try {
+      await saveOrder({
+        roomId,
+        items: cart,
+        totalAmount,
+        customerPhone
+      });
+      window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
+      setCart([]);
+      setShowPhoneModal(false);
+      setCustomerPhone('');
+      toast.success('Order sent to WhatsApp!');
+    } catch (error) {
+      toast.error('Proceeding to WhatsApp.');
+      window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
+      console.error(error);
+    }
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
@@ -79,17 +119,6 @@ export default function GuestMenu() {
             <h1 className="text-xl font-bold tracking-tight">Room {roomId}</h1>
             <p className="text-xs text-muted-foreground">Digital Menu</p>
           </div>
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          >
-            <ShoppingCart className="w-6 h-6" />
-            {totalCartItems > 0 && (
-              <span className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
-                {totalCartItems}
-              </span>
-            )}
-          </button>
         </div>
       </header>
 
@@ -208,16 +237,75 @@ export default function GuestMenu() {
         </div>
       </footer>
 
-      {/* Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        setIsOpen={setIsCartOpen}
-        cart={cart}
-        addToCart={addToCart}
-        removeFromCart={removeFromCart}
-        roomId={roomId}
-        whatsappNumber={whatsappNumber}
-      />
+      {/* Floating Bottom Bar */}
+      <AnimatePresence>
+        {cart.length > 0 && (
+          <motion.div
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-6 sm:pb-4 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
+          >
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{totalCartItems} {totalCartItems === 1 ? 'item' : 'items'}</p>
+                <p className="text-xl font-bold text-foreground">₹{totalAmount.toFixed(2)}</p>
+              </div>
+              <button
+                onClick={triggerOrderFlow}
+                className="flex-1 max-w-[200px] sm:max-w-xs py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-[#25D366]/20"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span className="truncate">Order via WhatsApp</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Phone Number Modal */}
+      <AnimatePresence>
+        {showPhoneModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowPhoneModal(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+            >
+              <h2 className="text-xl font-bold mb-2 text-foreground">Almost done!</h2>
+              <p className="text-sm text-gray-500 mb-6">Please provide your WhatsApp number so the staff can update you on your order status.</p>
+              
+              <form onSubmit={handleWhatsAppOrder} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">WhatsApp Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="e.g. 9876543210"
+                    className="w-full h-12 rounded-xl border border-gray-100 bg-gray-50 px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowPhoneModal(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium">Cancel</button>
+                  <button type="submit" className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold flex items-center justify-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Order
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

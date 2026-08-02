@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 // Collection References
@@ -64,6 +64,14 @@ export const getOrders = async () => {
   const q = query(ordersCol, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const updateOrderStatus = async (id, status) => {
+  const orderRef = doc(db, 'orders', id);
+  await updateDoc(orderRef, {
+    status,
+    updatedAt: serverTimestamp()
+  });
 };
 
 // --- PURCHASES ---
