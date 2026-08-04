@@ -3,19 +3,22 @@ import { motion } from 'framer-motion';
 import { Phone, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getSettings, saveSettings } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Settings() {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (tenantId) fetchSettings();
+  }, [tenantId]);
 
   const fetchSettings = async () => {
     try {
-      const settings = await getSettings();
+      const settings = await getSettings(tenantId);
       setWhatsappNumber(settings.whatsappNumber || '');
     } catch (error) {
       toast.error('Failed to load settings');
@@ -29,7 +32,7 @@ export default function Settings() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await saveSettings({ whatsappNumber });
+      await saveSettings(tenantId, { whatsappNumber });
       toast.success('Settings saved successfully!');
     } catch (error) {
       toast.error('Failed to save settings');

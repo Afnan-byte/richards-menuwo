@@ -4,6 +4,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { Download, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getRooms, saveRoom, deleteRoom } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function RoomManagement() {
   const [rooms, setRooms] = useState([]);
@@ -11,14 +12,17 @@ export default function RoomManagement() {
   const [newRoomName, setNewRoomName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
 
   useEffect(() => {
     fetchRooms();
   }, []);
 
   const fetchRooms = async () => {
+    if (!tenantId) return;
     try {
-      const data = await getRooms();
+      const data = await getRooms(tenantId);
       setRooms(data);
     } catch (error) {
       toast.error('Failed to load rooms');
@@ -42,7 +46,7 @@ export default function RoomManagement() {
     }
 
     try {
-      const newRoom = await saveRoom({ roomId: newRoomId, name: newRoomName });
+      const newRoom = await saveRoom(tenantId, { roomId: newRoomId, name: newRoomName });
       setRooms([newRoom, ...rooms]);
       setNewRoomId('');
       setNewRoomName('');
@@ -57,7 +61,7 @@ export default function RoomManagement() {
   const removeRoom = async (id) => {
     if (!window.confirm("Warning: Deleting this room will permanently invalidate its QR code. Any physical QR stands or printouts you have for this room will no longer work and you will need to replace them. Are you sure you want to proceed?")) return;
     try {
-      await deleteRoom(id);
+      await deleteRoom(tenantId, id);
       setRooms(rooms.filter(r => r.id !== id));
       toast.success('Room removed');
     } catch (error) {
@@ -82,7 +86,7 @@ export default function RoomManagement() {
   // Generate the full URL for the QR code based on current window location
   const getMenuUrl = (roomId) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/menu/${roomId}`;
+    return `${baseUrl}/menu/${tenantId}/${roomId}`;
   };
 
   return (
@@ -167,7 +171,7 @@ export default function RoomManagement() {
               
               <h3 className="text-xl font-bold text-foreground mb-1">{room.name}</h3>
               <div className="flex items-center gap-2 mb-6">
-                <p className="text-xs text-muted-foreground font-mono bg-gray-50 px-2 py-1 rounded">/menu/{room.roomId || room.id}</p>
+                <p className="text-xs text-muted-foreground font-mono bg-gray-50 px-2 py-1 rounded">/menu/{tenantId}/{room.roomId || room.id}</p>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(getMenuUrl(room.roomId || room.id));

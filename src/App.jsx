@@ -33,7 +33,7 @@ function App() {
           <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
           {/* Guest Routes */}
-          <Route path="/menu/:roomId" element={<GuestMenu />} />
+          <Route path="/menu/:tenantId/:roomId" element={<GuestMenu />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />

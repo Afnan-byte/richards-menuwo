@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getMenuItems, saveMenuItem, deleteMenuItem, getCategories } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 import ImageUploadWidget from '../../components/ImageUploadWidget';
 
 export default function MenuManagement() {
@@ -11,6 +12,9 @@ export default function MenuManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
   
   const [formData, setFormData] = useState({
     name: '',
@@ -23,14 +27,14 @@ export default function MenuManagement() {
   });
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (tenantId) fetchData();
+  }, [tenantId]);
 
   const fetchData = async () => {
     try {
       const [fetchedItems, fetchedCats] = await Promise.all([
-        getMenuItems(),
-        getCategories()
+        getMenuItems(tenantId),
+        getCategories(tenantId)
       ]);
       setItems(fetchedItems);
       setCategories(fetchedCats);
@@ -53,7 +57,7 @@ export default function MenuManagement() {
 
     setIsSaving(true);
     try {
-      const newItem = await saveMenuItem({
+      const newItem = await saveMenuItem(tenantId, {
         ...formData,
         price: parseFloat(formData.price)
       });
@@ -80,7 +84,7 @@ export default function MenuManagement() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteMenuItem(id);
+      await deleteMenuItem(tenantId, id);
       setItems(items.filter(i => i.id !== id));
       toast.success('Item deleted');
     } catch (error) {

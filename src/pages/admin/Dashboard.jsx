@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { LayoutDashboard, DoorOpen, Utensils, Receipt, TrendingUp, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getRooms, getMenuItems, getOrders, getPurchases } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -11,19 +12,22 @@ export default function AdminDashboard() {
     orders: 0,
     purchases: 0
   });
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [tenantId]);
 
   const fetchDashboardData = async () => {
+    if (!tenantId) return;
     try {
       const [rooms, menuItems, orders, purchases] = await Promise.all([
-        getRooms(),
-        getMenuItems(),
-        getOrders(),
-        getPurchases()
+        getRooms(tenantId),
+        getMenuItems(tenantId),
+        getOrders(tenantId),
+        getPurchases(tenantId)
       ]);
 
       // Calculate total purchases
@@ -102,13 +106,23 @@ export default function AdminDashboard() {
             </button>
             <button 
               onClick={() => {
-                navigator.clipboard.writeText(window.location.origin + '/staff/login');
-                toast.success('Staff Login link copied!');
+                navigator.clipboard.writeText(tenantId || '');
+                toast.success('Restaurant ID copied!');
               }}
               className="w-full flex justify-between items-center px-4 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-primary transition-colors font-medium"
             >
+              <span>Copy Restaurant ID</span>
+              <span className="text-xs bg-primary/10 px-2 py-1 rounded font-bold">Invite Staff</span>
+            </button>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/staff/register`);
+                toast.success('Staff Registration link copied!');
+              }}
+              className="w-full flex justify-between items-center px-4 py-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-emerald-600 transition-colors font-medium"
+            >
               <span>Copy Staff Portal Link</span>
-              <span className="text-xs bg-primary/10 px-2 py-1 rounded font-bold">Share with Staff</span>
+              <span className="text-xs bg-emerald-50 px-2 py-1 rounded font-bold border border-emerald-100">Portal Link</span>
             </button>
           </div>
         </div>

@@ -6,11 +6,12 @@ import toast from 'react-hot-toast';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
-import { savePurchase, getPurchases, deletePurchase } from '../../services/firebaseDb';
+import { savePurchase, subscribeToPurchases, deletePurchase } from '../../services/firebaseDb';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
   const [purchases, setPurchases] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,20 +26,17 @@ export default function StaffDashboard() {
       navigate('/staff/login');
       return;
     }
-    fetchData();
-  }, [currentUser, navigate]);
-
-  const fetchData = async () => {
-    try {
-      const data = await getPurchases();
-      setPurchases(data);
-    } catch (error) {
-      toast.error('Failed to load purchases');
-      console.error(error);
-    } finally {
+    
+    if (tenantId) {
+      const unsubscribe = subscribeToPurchases(tenantId, (data) => {
+        setPurchases(data);
+        setIsLoading(false);
+      });
+      return () => unsubscribe();
+    } else {
       setIsLoading(false);
     }
-  };
+  }, [currentUser, navigate, tenantId]);
 
   const handleSignOut = async () => {
     try {
@@ -60,7 +58,7 @@ export default function StaffDashboard() {
 
     setIsSaving(true);
     try {
-      const newPurchase = await savePurchase({
+      const newPurchase = await savePurchase(tenantId, {
         item: formData.item,
         category: formData.category,
         amount: parseFloat(formData.amount),
@@ -82,7 +80,7 @@ export default function StaffDashboard() {
 
   const handleDelete = async (id) => {
     try {
-      await deletePurchase(id);
+      await deletePurchase(tenantId, id);
       setPurchases(purchases.filter(p => p.id !== id));
       toast.success('Purchase removed');
     } catch (error) {
@@ -95,7 +93,14 @@ export default function StaffDashboard() {
     <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-primary">Staff Portal</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-primary">Staff Portal</h1>
+          {tenantId && (
+            <span className="hidden sm:inline-block px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-lg border border-green-200">
+              Connected: {tenantId}
+            </span>
+          )}
+        </div>
         <button 
           onClick={handleSignOut}
           className="flex items-center gap-2 text-red-500 hover:bg-red-50 px-3 sm:px-4 py-2 rounded-xl transition-colors font-medium text-sm sm:text-base"
@@ -200,7 +205,11 @@ export default function StaffDashboard() {
                               {purchase.category}
                             </span>
                             <span className="text-xs text-gray-400">
-                              {new Date(purchase.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {(() => {
+                                const d = purchase.createdAt;
+                                const dateObj = d?.toDate ? d.toDate() : (d ? new Date(d) : new Date());
+                                return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              })()}
                             </span>
                           </div>
                         </div>

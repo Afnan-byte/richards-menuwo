@@ -4,9 +4,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase/config';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebase/config';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminRegister() {
+  const { refreshProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,7 +23,19 @@ export default function AdminRegister() {
     
     setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      const shortCode = userCredential.user.uid.substring(0, 6).toUpperCase();
+      
+      // Save admin profile
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        role: 'admin',
+        restaurantId: shortCode,
+        email: email
+      });
+      
+      await refreshProfile(userCredential.user.uid);
+
       toast.success('Successfully registered and logged in');
       navigate('/admin');
     } catch (error) {

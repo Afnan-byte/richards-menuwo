@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getCategories, saveCategory, deleteCategory } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -10,14 +11,16 @@ export default function CategoryManagement() {
   const [newCatName, setNewCatName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (tenantId) fetchCategories();
+  }, [tenantId]);
 
   const fetchCategories = async () => {
     try {
-      const data = await getCategories();
+      const data = await getCategories(tenantId);
       setCategories(data);
     } catch (error) {
       toast.error('Failed to fetch categories');
@@ -37,7 +40,7 @@ export default function CategoryManagement() {
 
     setIsSaving(true);
     try {
-      const added = await saveCategory({ name: newCatName.trim() });
+      const added = await saveCategory(tenantId, { name: newCatName.trim() });
       setCategories([...categories, added]);
       setNewCatName('');
       setIsModalOpen(false);
@@ -52,7 +55,7 @@ export default function CategoryManagement() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteCategory(id);
+      await deleteCategory(tenantId, id);
       setCategories(categories.filter(c => c.id !== id));
       toast.success('Category deleted');
     } catch (error) {

@@ -1,23 +1,21 @@
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
-// Collection References
-const ordersCol = collection(db, 'orders');
-const purchasesCol = collection(db, 'purchases');
-const categoriesCol = collection(db, 'categories');
-const menuCol = collection(db, 'menu');
-const roomsCol = collection(db, 'rooms');
-const settingsDocRef = doc(db, 'settings', 'global');
+// Helpers for tenant-specific paths
+const getTenantCollection = (tenantId, colName) => collection(db, 'restaurants', tenantId, colName);
+const getTenantDoc = (tenantId, colName, docId) => doc(db, 'restaurants', tenantId, colName, docId);
+const getTenantSettingsRef = (tenantId) => doc(db, 'restaurants', tenantId);
 
 // --- CATEGORIES ---
-export const getCategories = async () => {
-  const q = query(categoriesCol);
+export const getCategories = async (tenantId) => {
+  if (!tenantId) return [];
+  const q = query(getTenantCollection(tenantId, 'categories'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const saveCategory = async (category) => {
-  const docRef = await addDoc(categoriesCol, {
+export const saveCategory = async (tenantId, category) => {
+  const docRef = await addDoc(getTenantCollection(tenantId, 'categories'), {
     ...category,
     createdAt: serverTimestamp()
   });
@@ -25,19 +23,20 @@ export const saveCategory = async (category) => {
   return { id: newDoc.id, ...newDoc.data() };
 };
 
-export const deleteCategory = async (id) => {
-  await deleteDoc(doc(db, 'categories', id));
+export const deleteCategory = async (tenantId, id) => {
+  await deleteDoc(getTenantDoc(tenantId, 'categories', id));
 };
 
 // --- MENU ITEMS ---
-export const getMenuItems = async () => {
-  const q = query(menuCol);
+export const getMenuItems = async (tenantId) => {
+  if (!tenantId) return [];
+  const q = query(getTenantCollection(tenantId, 'menu'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const saveMenuItem = async (item) => {
-  const docRef = await addDoc(menuCol, {
+export const saveMenuItem = async (tenantId, item) => {
+  const docRef = await addDoc(getTenantCollection(tenantId, 'menu'), {
     ...item,
     createdAt: serverTimestamp()
   });
@@ -45,13 +44,13 @@ export const saveMenuItem = async (item) => {
   return { id: newDoc.id, ...newDoc.data() };
 };
 
-export const deleteMenuItem = async (id) => {
-  await deleteDoc(doc(db, 'menu', id));
+export const deleteMenuItem = async (tenantId, id) => {
+  await deleteDoc(getTenantDoc(tenantId, 'menu', id));
 };
 
 // --- ORDERS ---
-export const saveOrder = async (orderData) => {
-  const docRef = await addDoc(ordersCol, {
+export const saveOrder = async (tenantId, orderData) => {
+  const docRef = await addDoc(getTenantCollection(tenantId, 'orders'), {
     ...orderData,
     status: 'pending',
     createdAt: serverTimestamp()
@@ -60,14 +59,24 @@ export const saveOrder = async (orderData) => {
   return { id: newDoc.id, ...newDoc.data() };
 };
 
-export const getOrders = async () => {
-  const q = query(ordersCol, orderBy('createdAt', 'desc'));
+export const getOrders = async (tenantId) => {
+  if (!tenantId) return [];
+  const q = query(getTenantCollection(tenantId, 'orders'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const updateOrderStatus = async (id, status) => {
-  const orderRef = doc(db, 'orders', id);
+export const subscribeToOrders = (tenantId, callback) => {
+  if (!tenantId) return () => {};
+  const q = query(getTenantCollection(tenantId, 'orders'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(orders);
+  });
+};
+
+export const updateOrderStatus = async (tenantId, id, status) => {
+  const orderRef = getTenantDoc(tenantId, 'orders', id);
   await updateDoc(orderRef, {
     status,
     updatedAt: serverTimestamp()
@@ -75,8 +84,8 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 // --- PURCHASES ---
-export const savePurchase = async (purchaseData) => {
-  const docRef = await addDoc(purchasesCol, {
+export const savePurchase = async (tenantId, purchaseData) => {
+  const docRef = await addDoc(getTenantCollection(tenantId, 'purchases'), {
     ...purchaseData,
     createdAt: serverTimestamp()
   });
@@ -84,25 +93,36 @@ export const savePurchase = async (purchaseData) => {
   return { id: newDoc.id, ...newDoc.data() };
 };
 
-export const getPurchases = async () => {
-  const q = query(purchasesCol, orderBy('createdAt', 'desc'));
+export const getPurchases = async (tenantId) => {
+  if (!tenantId) return [];
+  const q = query(getTenantCollection(tenantId, 'purchases'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const deletePurchase = async (id) => {
-  await deleteDoc(doc(db, 'purchases', id));
+export const subscribeToPurchases = (tenantId, callback) => {
+  if (!tenantId) return () => {};
+  const q = query(getTenantCollection(tenantId, 'purchases'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const purchases = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(purchases);
+  });
+};
+
+export const deletePurchase = async (tenantId, id) => {
+  await deleteDoc(getTenantDoc(tenantId, 'purchases', id));
 };
 
 // --- ROOMS ---
-export const getRooms = async () => {
-  const q = query(roomsCol, orderBy('createdAt', 'desc'));
+export const getRooms = async (tenantId) => {
+  if (!tenantId) return [];
+  const q = query(getTenantCollection(tenantId, 'rooms'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const saveRoom = async (roomData) => {
-  const docRef = await addDoc(roomsCol, {
+export const saveRoom = async (tenantId, roomData) => {
+  const docRef = await addDoc(getTenantCollection(tenantId, 'rooms'), {
     ...roomData,
     createdAt: serverTimestamp()
   });
@@ -110,13 +130,14 @@ export const saveRoom = async (roomData) => {
   return { id: newDoc.id, ...newDoc.data() };
 };
 
-export const deleteRoom = async (id) => {
-  await deleteDoc(doc(db, 'rooms', id));
+export const deleteRoom = async (tenantId, id) => {
+  await deleteDoc(getTenantDoc(tenantId, 'rooms', id));
 };
 
 // --- SETTINGS ---
-export const getSettings = async () => {
-  const docSnap = await getDoc(settingsDocRef);
+export const getSettings = async (tenantId) => {
+  if (!tenantId) return { whatsappNumber: '' };
+  const docSnap = await getDoc(getTenantSettingsRef(tenantId));
   if (docSnap.exists()) {
     return docSnap.data();
   } else {
@@ -124,8 +145,8 @@ export const getSettings = async () => {
   }
 };
 
-export const saveSettings = async (settingsData) => {
-  await setDoc(settingsDocRef, {
+export const saveSettings = async (tenantId, settingsData) => {
+  await setDoc(getTenantSettingsRef(tenantId), {
     ...settingsData,
     updatedAt: serverTimestamp()
   }, { merge: true });

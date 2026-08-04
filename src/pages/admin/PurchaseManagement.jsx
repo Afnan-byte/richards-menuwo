@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPurchases, getOrders, updateOrderStatus } from '../../services/firebaseDb';
+import { subscribeToPurchases, subscribeToOrders, updateOrderStatus } from '../../services/firebaseDb';
+import { useAuth } from '../../contexts/AuthContext';
 import { TrendingUp, TrendingDown, DollarSign, Receipt, ShoppingCart, Download, Filter, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
@@ -15,33 +16,47 @@ export default function PurchaseManagement() {
   const [purchases, setPurchases] = useState([]);
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { userProfile } = useAuth();
+  const tenantId = userProfile?.restaurantId;
   
   const [timeFilter, setTimeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date_desc');
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [fetchedPurchases, fetchedOrders] = await Promise.all([
-        getPurchases(),
-        getOrders()
-      ]);
-      setPurchases(fetchedPurchases);
-      setOrders(fetchedOrders);
-    } catch (error) {
-      toast.error('Failed to load financial data');
-      console.error(error);
-    } finally {
+    if (!tenantId) {
       setIsLoading(false);
+      return;
     }
-  };
+
+    setIsLoading(true);
+    let purchasesLoaded = false;
+    let ordersLoaded = false;
+
+    const checkLoading = () => {
+      if (purchasesLoaded && ordersLoaded) setIsLoading(false);
+    };
+
+    const unsubscribePurchases = subscribeToPurchases(tenantId, (data) => {
+      setPurchases(data);
+      purchasesLoaded = true;
+      checkLoading();
+    });
+
+    const unsubscribeOrders = subscribeToOrders(tenantId, (data) => {
+      setOrders(data);
+      ordersLoaded = true;
+      checkLoading();
+    });
+
+    return () => {
+      unsubscribePurchases();
+      unsubscribeOrders();
+    };
+  }, [tenantId]);
 
   const handleStatusUpdate = async (orderId, customerPhone, status, roomId) => {
     try {
-      await updateOrderStatus(orderId, status);
+      await updateOrderStatus(tenantId, orderId, status);
       toast.success(`Order marked as ${status}`);
       if (customerPhone) {
         const cleanNumber = customerPhone.replace(/[^0-9]/g, '');
@@ -158,7 +173,14 @@ export default function PurchaseManagement() {
     <div className="space-y-8 pb-12">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Purchase Analytics</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Purchase Analytics</h1>
+            {tenantId && (
+              <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20">
+                Admin ID: {tenantId}
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground mt-1">Review staff expenses, compare with food orders, and calculate profit.</p>
         </div>
         

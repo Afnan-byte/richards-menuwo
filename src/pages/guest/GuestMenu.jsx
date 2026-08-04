@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { getCategories, getMenuItems, getSettings, saveOrder } from '../../services/firebaseDb';
 
 export default function GuestMenu() {
-  const { roomId } = useParams();
+  const { tenantId, roomId } = useParams();
   const [activeCategory, setActiveCategory] = useState('All');
   const [cart, setCart] = useState([]);
   const [categories, setCategories] = useState(['All']);
@@ -23,9 +23,9 @@ export default function GuestMenu() {
   const fetchData = async () => {
     try {
       const [dbCategories, dbMenuItems, dbSettings] = await Promise.all([
-        getCategories(),
-        getMenuItems(),
-        getSettings()
+        getCategories(tenantId),
+        getMenuItems(tenantId),
+        getSettings(tenantId)
       ]);
       setCategories(['All', ...dbCategories.map(c => c.name)]);
       setMenuItems(dbMenuItems);
@@ -88,7 +88,7 @@ export default function GuestMenu() {
     const cleanNumber = whatsappNumber ? whatsappNumber.replace(/[^0-9]/g, '') : '1234567890';
 
     try {
-      await saveOrder({
+      await saveOrder(tenantId, {
         roomId,
         items: cart,
         totalAmount,
