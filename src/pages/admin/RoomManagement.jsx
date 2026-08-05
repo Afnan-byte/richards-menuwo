@@ -73,7 +73,27 @@ export default function RoomManagement() {
   const downloadQR = (id, name) => {
     const canvas = document.getElementById(`qr-${id}`);
     if (canvas) {
-      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+      // Create a high-res canvas for downloading (1024x1024)
+      const size = 1024;
+      const margin = 64; // Standard quiet zone for scanning
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = size;
+      tempCanvas.height = size;
+      const ctx = tempCanvas.getContext('2d');
+      
+      // Fill with solid white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Disable smoothing to ensure perfectly crisp pixel edges when upscaling
+      ctx.imageSmoothingEnabled = false;
+      
+      // Draw the original QR code scaled up in the center
+      const qrSize = size - (margin * 2);
+      ctx.drawImage(canvas, margin, margin, qrSize, qrSize);
+      
+      const pngUrl = tempCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
       const downloadLink = document.createElement("a");
       downloadLink.href = pngUrl;
       downloadLink.download = `QR_${name.replace(/\s+/g, '_')}.png`;
@@ -189,8 +209,8 @@ export default function RoomManagement() {
                   value={getMenuUrl(room.roomId || room.id)} 
                   size={180} 
                   bgColor={"#ffffff"}
-                  fgColor={"#0A161E"}
-                  level={"Q"}
+                  fgColor={"#000000"}
+                  level={"H"}
                   includeMargin={false}
                 />
               </div>
