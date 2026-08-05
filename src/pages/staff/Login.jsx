@@ -92,11 +92,6 @@ export default function StaffLogin() {
             </button>
           </form>
           
-          <div className="mt-6 text-center">
-            <Link to="/staff/register" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Need a staff account? Register here.
-            </Link>
-          </div>
         </div>
       </motion.div>
     </div>

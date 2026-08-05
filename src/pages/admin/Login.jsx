@@ -95,11 +95,6 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <Link to="/admin/register" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Don't have an account? Register here.
-            </Link>
-          </div>
         </div>
       </motion.div>
     </div>

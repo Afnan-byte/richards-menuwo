@@ -10,7 +10,6 @@ import GuestMenu from './pages/guest/GuestMenu';
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminLogin from './pages/admin/Login';
-import AdminRegister from './pages/admin/Register';
 import AdminForgotPassword from './pages/admin/ForgotPassword';
 import MenuManagement from './pages/admin/MenuManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
@@ -21,7 +20,6 @@ import Settings from './pages/admin/Settings';
 // Staff Pages
 import StaffDashboard from './pages/staff/Dashboard';
 import StaffLogin from './pages/staff/Login';
-import StaffRegister from './pages/staff/Register';
 
 function App() {
   return (
@@ -37,7 +35,6 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/register" element={<AdminRegister />} />
           <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
@@ -50,7 +47,6 @@ function App() {
           
           {/* Staff Routes */}
           <Route path="/staff/login" element={<StaffLogin />} />
-          <Route path="/staff/register" element={<StaffRegister />} />
           <Route path="/staff" element={<StaffDashboard />} />
         </Routes>
       </Router>
