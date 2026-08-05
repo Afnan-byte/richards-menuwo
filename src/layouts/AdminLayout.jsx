@@ -36,6 +36,10 @@ export default function AdminLayout() {
   if (!currentUser) {
     return <Navigate to="/admin/login" replace />;
   }
+  
+  if (userProfile && userProfile.role !== 'admin') {
+    return <Navigate to="/staff" replace />;
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
