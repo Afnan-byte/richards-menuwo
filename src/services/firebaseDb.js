@@ -116,9 +116,15 @@ export const deletePurchase = async (tenantId, id) => {
 // --- ROOMS ---
 export const getRooms = async (tenantId) => {
   if (!tenantId) return [];
-  const q = query(getTenantCollection(tenantId, 'rooms'), orderBy('createdAt', 'desc'));
+  const q = query(getTenantCollection(tenantId, 'rooms'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const rooms = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Sort on client side to ensure rooms without createdAt are not hidden
+  return rooms.sort((a, b) => {
+    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return timeB - timeA;
+  });
 };
 
 export const saveRoom = async (tenantId, roomData) => {
