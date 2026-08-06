@@ -16,8 +16,8 @@ export default function RoomManagement() {
   const tenantId = userProfile?.restaurantId;
 
   useEffect(() => {
-    fetchRooms();
-  }, []);
+    if (tenantId) fetchRooms();
+  }, [tenantId]);
 
   const fetchRooms = async () => {
     if (!tenantId) return;
@@ -106,7 +106,8 @@ export default function RoomManagement() {
   // Generate the full URL for the QR code based on current window location
   const getMenuUrl = (roomId) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/menu/${tenantId}/${roomId}`;
+    const currentTenant = tenantId || userProfile?.restaurantId || '';
+    return `${baseUrl}/menu/${currentTenant}/${roomId}`;
   };
 
   return (

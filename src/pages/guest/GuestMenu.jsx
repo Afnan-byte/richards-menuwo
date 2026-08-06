@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, Info, MessageCircle } from 'lucide-react';
+import { Plus, Minus, Info, MessageCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getCategories, getMenuItems, getSettings, saveOrder } from '../../services/firebaseDb';
+import { getCategories, getMenuItems, getSettings, saveOrder, resolveTenantId } from '../../services/firebaseDb';
+import { auth } from '../../firebase/config';
+import { signInAnonymously } from 'firebase/auth';
 
 export default function GuestMenu() {
   const { tenantId, roomId } = useParams();
@@ -15,24 +17,72 @@ export default function GuestMenu() {
   const [loading, setLoading] = useState(true);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [resolvedTenant, setResolvedTenant] = useState(tenantId || '');
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [tenantId, roomId]);
 
   const fetchData = async () => {
+    if (!tenantId) {
+      setLoading(false);
+      setHasError(true);
+      return;
+    }
+
+    setLoading(true);
+    setHasError(false);
+
     try {
-      const [dbCategories, dbMenuItems, dbSettings] = await Promise.all([
-        getCategories(tenantId),
-        getMenuItems(tenantId),
-        getSettings(tenantId)
-      ]);
-      setCategories(['All', ...dbCategories.map(c => c.name)]);
-      setMenuItems(dbMenuItems);
-      setWhatsappNumber(dbSettings.whatsappNumber || import.meta.env.VITE_WHATSAPP_NUMBER || '1234567890');
+      // Resolve tenantId variations (case mismatch, UID vs shortCode)
+      const effectiveId = await resolveTenantId(tenantId);
+      setResolvedTenant(effectiveId || tenantId);
+
+      const loadTenantData = async (targetId) => {
+        const [catsRes, itemsRes, settingsRes] = await Promise.allSettled([
+          getCategories(targetId),
+          getMenuItems(targetId),
+          getSettings(targetId)
+        ]);
+
+        let cats = catsRes.status === 'fulfilled' ? catsRes.value : [];
+        let items = itemsRes.status === 'fulfilled' ? itemsRes.value : [];
+        let settings = settingsRes.status === 'fulfilled' ? settingsRes.value : {};
+
+        // If items query failed due to permissions or returned empty, attempt anonymous sign in & retry
+        if ((itemsRes.status === 'rejected' || items.length === 0) && !auth.currentUser) {
+          try {
+            await signInAnonymously(auth);
+            const retryItems = await getMenuItems(targetId);
+            const retryCats = await getCategories(targetId);
+            const retrySettings = await getSettings(targetId);
+            if (retryItems.length > 0) items = retryItems;
+            if (retryCats.length > 0) cats = retryCats;
+            if (retrySettings.whatsappNumber) settings = retrySettings;
+          } catch (anonErr) {
+            console.warn('Anonymous auth fallback notice:', anonErr);
+          }
+        }
+
+        return { cats, items, settings };
+      };
+
+      const { cats, items, settings } = await loadTenantData(effectiveId || tenantId);
+
+      if (cats.length > 0) {
+        setCategories(['All', ...cats.map(c => c.name)]);
+      } else {
+        const itemCats = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
+        setCategories(['All', ...itemCats]);
+      }
+
+      setMenuItems(items);
+      setWhatsappNumber(settings.whatsappNumber || import.meta.env.VITE_WHATSAPP_NUMBER || '1234567890');
     } catch (error) {
+      console.error('Failed to load menu:', error);
+      setHasError(true);
       toast.error('Failed to load menu');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -88,7 +138,7 @@ export default function GuestMenu() {
     const cleanNumber = whatsappNumber ? whatsappNumber.replace(/[^0-9]/g, '') : '1234567890';
 
     try {
-      await saveOrder(tenantId, {
+      await saveOrder(resolvedTenant || tenantId, {
         roomId,
         items: cart,
         totalAmount,
@@ -108,6 +158,26 @@ export default function GuestMenu() {
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground text-center">
+        <div className="glass-card p-8 max-w-md w-full space-y-4">
+          <Info className="w-12 h-12 text-amber-500 mx-auto" />
+          <h2 className="text-xl font-bold">Unable to Load Menu</h2>
+          <p className="text-sm text-muted-foreground">
+            We could not fetch the menu for Room {roomId}. Please check your connection and try again.
+          </p>
+          <button
+            onClick={fetchData}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry Loading
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

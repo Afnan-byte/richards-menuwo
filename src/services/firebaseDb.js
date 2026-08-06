@@ -1,10 +1,64 @@
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, updateDoc, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 // Helpers for tenant-specific paths
 const getTenantCollection = (tenantId, colName) => collection(db, 'restaurants', tenantId, colName);
 const getTenantDoc = (tenantId, colName, docId) => doc(db, 'restaurants', tenantId, colName, docId);
 const getTenantSettingsRef = (tenantId) => doc(db, 'restaurants', tenantId);
+
+// Helper to resolve tenant ID variations (case-sensitivity, shortCode vs UID lookup)
+export const resolveTenantId = async (tenantId) => {
+  if (!tenantId) return '';
+
+  // 1. Try exact tenantId (e.g. "WJS09F")
+  try {
+    const directMenuSnap = await getDocs(query(getTenantCollection(tenantId, 'menu')));
+    if (!directMenuSnap.empty) {
+      return tenantId;
+    }
+  } catch (e) {
+    console.warn("Direct tenant menu check notice:", e);
+  }
+
+  // 2. Try uppercase tenantId (e.g. "wjs09f" -> "WJS09F")
+  const upperTenantId = tenantId.toUpperCase();
+  if (upperTenantId !== tenantId) {
+    try {
+      const upperMenuSnap = await getDocs(query(getTenantCollection(upperTenantId, 'menu')));
+      if (!upperMenuSnap.empty) {
+        return upperTenantId;
+      }
+    } catch (e) {
+      console.warn("Upper tenant menu check notice:", e);
+    }
+  }
+
+  // 3. Search users collection by restaurantId field or document ID (UID)
+  try {
+    const usersRef = collection(db, 'users');
+
+    const q1 = query(usersRef, where('restaurantId', '==', upperTenantId));
+    const snap1 = await getDocs(q1);
+    if (!snap1.empty) {
+      return snap1.docs[0].data().restaurantId || upperTenantId;
+    }
+
+    const q2 = query(usersRef, where('restaurantId', '==', tenantId));
+    const snap2 = await getDocs(q2);
+    if (!snap2.empty) {
+      return snap2.docs[0].data().restaurantId || tenantId;
+    }
+
+    const userDoc = await getDoc(doc(db, 'users', tenantId));
+    if (userDoc.exists()) {
+      return userDoc.data().restaurantId || tenantId;
+    }
+  } catch (e) {
+    console.warn("User lookup for tenantId notice:", e);
+  }
+
+  return upperTenantId;
+};
 
 // --- CATEGORIES ---
 export const getCategories = async (tenantId) => {
