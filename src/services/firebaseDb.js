@@ -194,20 +194,71 @@ export const deleteRoom = async (tenantId, id) => {
   await deleteDoc(getTenantDoc(tenantId, 'rooms', id));
 };
 
+// --- WHATSAPP NUMBER FORMATTER ---
+export const formatWhatsAppNumber = (rawNumber) => {
+  if (!rawNumber) return '';
+  let digits = rawNumber.toString().replace(/[^0-9]/g, '');
+  if (!digits) return '';
+
+  // Remove leading zeros
+  digits = digits.replace(/^0+/, '');
+
+  // If 10-digit Indian number starting with 6, 7, 8, 9, prepend country code 91
+  if (digits.length === 10 && /^[6-9]/.test(digits)) {
+    digits = '91' + digits;
+  }
+
+  return digits;
+};
+
 // --- SETTINGS ---
 export const getSettings = async (tenantId) => {
   if (!tenantId) return { whatsappNumber: '' };
-  const docSnap = await getDoc(getTenantSettingsRef(tenantId));
-  if (docSnap.exists()) {
-    return docSnap.data();
-  } else {
-    return { whatsappNumber: '' };
+
+  // 1. Check exact tenantId
+  try {
+    const docSnap = await getDoc(getTenantSettingsRef(tenantId));
+    if (docSnap.exists() && docSnap.data().whatsappNumber) {
+      return docSnap.data();
+    }
+  } catch (e) {
+    console.warn("Settings exact lookup notice:", e);
   }
+
+  // 2. Check uppercase tenantId
+  const upperTenantId = tenantId.toUpperCase();
+  if (upperTenantId !== tenantId) {
+    try {
+      const upperSnap = await getDoc(getTenantSettingsRef(upperTenantId));
+      if (upperSnap.exists() && upperSnap.data().whatsappNumber) {
+        return upperSnap.data();
+      }
+    } catch (e) {
+      console.warn("Settings upper lookup notice:", e);
+    }
+  }
+
+  // 3. Try resolved tenantId
+  try {
+    const resolvedId = await resolveTenantId(tenantId);
+    if (resolvedId && resolvedId !== tenantId && resolvedId !== upperTenantId) {
+      const resSnap = await getDoc(getTenantSettingsRef(resolvedId));
+      if (resSnap.exists() && resSnap.data().whatsappNumber) {
+        return resSnap.data();
+      }
+    }
+  } catch (e) {
+    console.warn("Settings resolved lookup notice:", e);
+  }
+
+  return { whatsappNumber: '' };
 };
 
 export const saveSettings = async (tenantId, settingsData) => {
-  await setDoc(getTenantSettingsRef(tenantId), {
+  const formattedData = {
     ...settingsData,
+    whatsappNumber: settingsData.whatsappNumber ? formatWhatsAppNumber(settingsData.whatsappNumber) : '',
     updatedAt: serverTimestamp()
-  }, { merge: true });
+  };
+  await setDoc(getTenantSettingsRef(tenantId), formattedData, { merge: true });
 };

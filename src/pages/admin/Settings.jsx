@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Phone, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getSettings, saveSettings } from '../../services/firebaseDb';
+import { getSettings, saveSettings, formatWhatsAppNumber } from '../../services/firebaseDb';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Settings() {
@@ -32,7 +32,14 @@ export default function Settings() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await saveSettings(tenantId, { whatsappNumber });
+      const formatted = formatWhatsAppNumber(whatsappNumber);
+      if (!formatted) {
+        toast.error('Please enter a valid phone number');
+        setIsSaving(false);
+        return;
+      }
+      await saveSettings(tenantId, { whatsappNumber: formatted });
+      setWhatsappNumber(formatted);
       toast.success('Settings saved successfully!');
     } catch (error) {
       toast.error('Failed to save settings');

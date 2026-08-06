@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Minus, Info, MessageCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getCategories, getMenuItems, getSettings, saveOrder, resolveTenantId } from '../../services/firebaseDb';
+import { getCategories, getMenuItems, getSettings, saveOrder, resolveTenantId, formatWhatsAppNumber } from '../../services/firebaseDb';
 import { auth } from '../../firebase/config';
 import { signInAnonymously } from 'firebase/auth';
 
@@ -78,7 +78,8 @@ export default function GuestMenu() {
       }
 
       setMenuItems(items);
-      setWhatsappNumber(settings.whatsappNumber || import.meta.env.VITE_WHATSAPP_NUMBER || '1234567890');
+      const rawNumber = settings.whatsappNumber || import.meta.env.VITE_WHATSAPP_NUMBER || '';
+      setWhatsappNumber(formatWhatsAppNumber(rawNumber));
     } catch (error) {
       console.error('Failed to load menu:', error);
       setHasError(true);
@@ -123,7 +124,8 @@ export default function GuestMenu() {
 
   const handleWhatsAppOrder = async (e) => {
     e.preventDefault();
-    if (!customerPhone || customerPhone.length < 5) {
+    const cleanCustomerDigits = customerPhone.replace(/[^0-9]/g, '');
+    if (!cleanCustomerDigits || cleanCustomerDigits.length < 5) {
       toast.error('Please enter a valid phone number');
       return;
     }
@@ -135,25 +137,28 @@ export default function GuestMenu() {
     message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
 
     const encodedMessage = encodeURIComponent(message);
-    const cleanNumber = whatsappNumber ? whatsappNumber.replace(/[^0-9]/g, '') : '1234567890';
+    const targetNumber = formatWhatsAppNumber(whatsappNumber) || '911234567890';
+    const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
 
+    // Log order in Firestore before redirecting
     try {
       await saveOrder(resolvedTenant || tenantId, {
         roomId,
         items: cart,
         totalAmount,
-        customerPhone: `+91${customerPhone.replace(/[^0-9]/g, '')}`
+        customerPhone: `+91${cleanCustomerDigits}`
       });
-      window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
-      setCart([]);
-      setShowPhoneModal(false);
-      setCustomerPhone('');
-      toast.success('Order sent to WhatsApp!');
     } catch (error) {
-      toast.error('Proceeding to WhatsApp.');
-      window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
-      console.error(error);
+      console.warn("Order save notice:", error);
     }
+
+    setCart([]);
+    setShowPhoneModal(false);
+    setCustomerPhone('');
+    toast.success('Redirecting to WhatsApp...');
+    
+    // Direct location redirect works reliably on iOS Safari & Android Chrome without popup blocking
+    window.location.href = waUrl;
   };
 
   if (loading) {
