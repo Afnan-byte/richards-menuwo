@@ -137,7 +137,13 @@ export default function GuestMenu() {
     message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
 
     const encodedMessage = encodeURIComponent(message);
-    const targetNumber = formatWhatsAppNumber(whatsappNumber) || '911234567890';
+    const targetNumber = formatWhatsAppNumber(whatsappNumber);
+
+    if (!targetNumber) {
+      toast.error('The admin has not configured a WhatsApp contact number yet.');
+      return;
+    }
+
     const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
 
     // Log order in Firestore before redirecting

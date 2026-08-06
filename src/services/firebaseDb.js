@@ -215,37 +215,72 @@ export const formatWhatsAppNumber = (rawNumber) => {
 export const getSettings = async (tenantId) => {
   if (!tenantId) return { whatsappNumber: '' };
 
-  // 1. Check exact tenantId
-  try {
-    const docSnap = await getDoc(getTenantSettingsRef(tenantId));
-    if (docSnap.exists() && docSnap.data().whatsappNumber) {
-      return docSnap.data();
+  const checkDocRef = async (docRef) => {
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.whatsappNumber) return data.whatsappNumber;
+      }
+    } catch (e) {
+      console.warn("Check doc ref notice:", e);
     }
-  } catch (e) {
-    console.warn("Settings exact lookup notice:", e);
-  }
+    return null;
+  };
+
+  // 1. Check exact tenantId
+  let foundNumber = await checkDocRef(getTenantSettingsRef(tenantId));
+  if (foundNumber) return { whatsappNumber: foundNumber };
 
   // 2. Check uppercase tenantId
   const upperTenantId = tenantId.toUpperCase();
   if (upperTenantId !== tenantId) {
-    try {
-      const upperSnap = await getDoc(getTenantSettingsRef(upperTenantId));
-      if (upperSnap.exists() && upperSnap.data().whatsappNumber) {
-        return upperSnap.data();
-      }
-    } catch (e) {
-      console.warn("Settings upper lookup notice:", e);
-    }
+    foundNumber = await checkDocRef(getTenantSettingsRef(upperTenantId));
+    if (foundNumber) return { whatsappNumber: foundNumber };
   }
 
-  // 3. Try resolved tenantId
+  // 3. Search users collection by restaurantId or document ID (UID)
+  try {
+    const usersRef = collection(db, 'users');
+
+    const q1 = query(usersRef, where('restaurantId', '==', upperTenantId));
+    const snap1 = await getDocs(q1);
+    if (!snap1.empty) {
+      const uData = snap1.docs[0].data();
+      if (uData.whatsappNumber) return { whatsappNumber: uData.whatsappNumber };
+      foundNumber = await checkDocRef(doc(db, 'restaurants', snap1.docs[0].id));
+      if (foundNumber) return { whatsappNumber: foundNumber };
+    }
+
+    const q2 = query(usersRef, where('restaurantId', '==', tenantId));
+    const snap2 = await getDocs(q2);
+    if (!snap2.empty) {
+      const uData = snap2.docs[0].data();
+      if (uData.whatsappNumber) return { whatsappNumber: uData.whatsappNumber };
+      foundNumber = await checkDocRef(doc(db, 'restaurants', snap2.docs[0].id));
+      if (foundNumber) return { whatsappNumber: foundNumber };
+    }
+
+    const userDocRef = doc(db, 'users', tenantId);
+    const uSnap = await getDoc(userDocRef);
+    if (uSnap.exists()) {
+      const uData = uSnap.data();
+      if (uData.whatsappNumber) return { whatsappNumber: uData.whatsappNumber };
+      if (uData.restaurantId) {
+        foundNumber = await checkDocRef(getTenantSettingsRef(uData.restaurantId));
+        if (foundNumber) return { whatsappNumber: foundNumber };
+      }
+    }
+  } catch (e) {
+    console.warn("Settings user lookup notice:", e);
+  }
+
+  // 4. Try resolved tenantId
   try {
     const resolvedId = await resolveTenantId(tenantId);
     if (resolvedId && resolvedId !== tenantId && resolvedId !== upperTenantId) {
-      const resSnap = await getDoc(getTenantSettingsRef(resolvedId));
-      if (resSnap.exists() && resSnap.data().whatsappNumber) {
-        return resSnap.data();
-      }
+      foundNumber = await checkDocRef(getTenantSettingsRef(resolvedId));
+      if (foundNumber) return { whatsappNumber: foundNumber };
     }
   } catch (e) {
     console.warn("Settings resolved lookup notice:", e);
@@ -255,10 +290,29 @@ export const getSettings = async (tenantId) => {
 };
 
 export const saveSettings = async (tenantId, settingsData) => {
-  const formattedData = {
+  const formattedPhone = settingsData.whatsappNumber ? formatWhatsAppNumber(settingsData.whatsappNumber) : '';
+  const payload = {
     ...settingsData,
-    whatsappNumber: settingsData.whatsappNumber ? formatWhatsAppNumber(settingsData.whatsappNumber) : '',
+    whatsappNumber: formattedPhone,
     updatedAt: serverTimestamp()
   };
-  await setDoc(getTenantSettingsRef(tenantId), formattedData, { merge: true });
+
+  if (tenantId) {
+    await setDoc(getTenantSettingsRef(tenantId), payload, { merge: true });
+
+    const upper = tenantId.toUpperCase();
+    if (upper !== tenantId) {
+      await setDoc(getTenantSettingsRef(upper), payload, { merge: true });
+    }
+  }
+
+  if (auth.currentUser) {
+    try {
+      const uid = auth.currentUser.uid;
+      await setDoc(doc(db, 'restaurants', uid), payload, { merge: true });
+      await setDoc(doc(db, 'users', uid), { whatsappNumber: formattedPhone }, { merge: true });
+    } catch (e) {
+      console.warn("Save user profile settings notice:", e);
+    }
+  }
 };
