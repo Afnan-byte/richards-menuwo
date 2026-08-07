@@ -8,7 +8,21 @@ const getTenantSettingsRef = (tenantId) => doc(db, 'restaurants', tenantId);
 
 // Helper to resolve tenant ID variations (case-sensitivity, shortCode vs UID lookup)
 export const resolveTenantId = async (tenantId) => {
-  if (!tenantId) return '';
+  if (!tenantId) {
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      for (const uDoc of usersSnap.docs) {
+        if (uDoc.data().restaurantId) return uDoc.data().restaurantId;
+      }
+      const restSnap = await getDocs(collection(db, 'restaurants'));
+      if (!restSnap.empty) {
+        return restSnap.docs[0].id;
+      }
+    } catch (e) {
+      console.warn("Default tenant lookup notice:", e);
+    }
+    return '';
+  }
 
   // 1. Try exact tenantId (e.g. "WJS09F")
   try {

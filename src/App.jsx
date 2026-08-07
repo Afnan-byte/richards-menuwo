@@ -32,6 +32,8 @@ function App() {
 
           {/* Guest Routes */}
           <Route path="/menu/:tenantId/:roomId" element={<GuestMenu />} />
+          <Route path="/order/table/:tenantId/:roomId" element={<GuestMenu />} />
+          <Route path="/order/table/:roomId" element={<GuestMenu />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />

@@ -16,6 +16,7 @@ export default function GuestMenu() {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [specialInstructions, setSpecialInstructions] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [resolvedTenant, setResolvedTenant] = useState(tenantId || '');
   const [hasError, setHasError] = useState(false);
@@ -25,12 +26,6 @@ export default function GuestMenu() {
   }, [tenantId, roomId]);
 
   const fetchData = async () => {
-    if (!tenantId) {
-      setLoading(false);
-      setHasError(true);
-      return;
-    }
-
     setLoading(true);
     setHasError(false);
 
@@ -44,8 +39,14 @@ export default function GuestMenu() {
         }
       }
 
-      // Resolve tenantId variations (case mismatch, UID vs shortCode)
-      const effectiveId = await resolveTenantId(tenantId);
+      // Resolve tenantId variations (case mismatch, UID vs shortCode, or empty tenantId)
+      const effectiveId = await resolveTenantId(tenantId || '');
+      if (!effectiveId && !tenantId) {
+        setLoading(false);
+        setHasError(true);
+        return;
+      }
+
       setResolvedTenant(effectiveId || tenantId);
 
       const loadTenantData = async (targetId) => {
@@ -119,23 +120,20 @@ export default function GuestMenu() {
   const handleWhatsAppOrder = async (e) => {
     e.preventDefault();
     const cleanCustomerDigits = customerPhone.replace(/[^0-9]/g, '');
-    if (!cleanCustomerDigits || cleanCustomerDigits.length < 5) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
 
-    let message = `🛎️ *NEW ROOM ORDER*\n`;
-    message += `-------------------------\n`;
-    message += `📍 *Room / Table:* ${roomId}\n`;
-    message += `📞 *Guest Contact:* +91 ${cleanCustomerDigits}\n`;
-    message += `-------------------------\n\n`;
-    message += `🛒 *ORDERED ITEMS:*\n`;
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    let message = `🍽️ NEW ORDER\n\n`;
+    message += `Table : ${roomId || 'N/A'}\n\n`;
+    message += `Customer Order\n\n`;
     cart.forEach(item => {
-      message += `• ${item.quantity}x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
+      message += `${item.quantity} x ${item.name}\n`;
     });
-    message += `\n-------------------------\n`;
-    message += `💰 *TOTAL AMOUNT: ₹${totalAmount.toFixed(2)}*\n`;
-    message += `-------------------------`;
+    message += `\nSpecial Instructions\n\n`;
+    message += `${specialInstructions.trim() ? specialInstructions.trim() : 'None'}\n\n`;
+    message += `Total : ₹${totalAmount.toFixed(0)}\n\n`;
+    message += `Time : ${timeString}`;
 
     const encodedMessage = encodeURIComponent(message);
     let targetNumber = formatWhatsAppNumber(whatsappNumber);
@@ -150,13 +148,14 @@ export default function GuestMenu() {
       }
     }
 
-    // Always log order in Firestore regardless of WhatsApp setup
+    // Log order in Firestore regardless of WhatsApp setup
     try {
       await saveOrder(resolvedTenant || tenantId, {
         roomId,
         items: cart,
+        specialInstructions: specialInstructions.trim(),
         totalAmount,
-        customerPhone: `+91${cleanCustomerDigits}`
+        customerPhone: cleanCustomerDigits ? `+91${cleanCustomerDigits}` : 'N/A'
       });
     } catch (error) {
       console.warn("Order save notice:", error);
@@ -165,13 +164,14 @@ export default function GuestMenu() {
     setCart([]);
     setShowPhoneModal(false);
     setCustomerPhone('');
+    setSpecialInstructions('');
 
     if (targetNumber) {
       toast.success('Redirecting to WhatsApp...');
       const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
       window.location.href = waUrl;
     } else {
-      toast.success('Order placed successfully! Staff will fulfill your room order.');
+      toast.success('Order placed successfully! Staff will fulfill your table order.');
     }
   };
 
@@ -186,7 +186,7 @@ export default function GuestMenu() {
           <Info className="w-12 h-12 text-amber-500 mx-auto" />
           <h2 className="text-xl font-bold">Unable to Load Menu</h2>
           <p className="text-sm text-muted-foreground">
-            We could not fetch the menu for Room {roomId}. Please check your connection and try again.
+            We could not fetch the menu for Table {roomId}. Please check your connection and try again.
           </p>
           <button
             onClick={fetchData}
@@ -205,8 +205,8 @@ export default function GuestMenu() {
       <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-gray-100 px-4 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Room {roomId}</h1>
-            <p className="text-xs text-muted-foreground">Digital Menu</p>
+            <h1 className="text-xl font-bold tracking-tight">Table : {roomId}</h1>
+            <p className="text-xs text-muted-foreground">Digital Menu & Quick Ordering</p>
           </div>
         </div>
       </header>
@@ -346,13 +346,13 @@ export default function GuestMenu() {
                 className="flex-1 max-w-[200px] sm:max-w-xs py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-[#25D366]/20"
               >
                 <MessageCircle className="w-5 h-5" />
-                <span className="truncate">Order via WhatsApp</span>
+                <span className="truncate">Place Order via WhatsApp</span>
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Phone Number Modal */}
+      {/* Checkout Modal */}
       <AnimatePresence>
         {showPhoneModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -369,30 +369,41 @@ export default function GuestMenu() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
             >
-              <h2 className="text-xl font-bold mb-2 text-foreground">Almost done!</h2>
-              <p className="text-sm text-gray-500 mb-6">Please provide your WhatsApp number so the staff can update you on your order status.</p>
+              <h2 className="text-xl font-bold mb-1 text-foreground">Complete Your Order</h2>
+              <p className="text-xs text-gray-500 mb-4">Table: <strong className="text-gray-800">{roomId}</strong> • Total: <strong className="text-primary">₹{totalAmount.toFixed(0)}</strong></p>
               
               <form onSubmit={handleWhatsAppOrder} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5 text-gray-700">WhatsApp Number</label>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">Special Instructions (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="e.g., Burger without onion, Less spicy"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">WhatsApp Number (Optional)</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
                       <span className="text-gray-500 font-medium sm:text-sm">+91</span>
                     </div>
                     <input
                       type="tel"
-                      required
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="9876543210"
-                      className="w-full h-12 rounded-xl border border-gray-100 bg-gray-50 pl-12 pr-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all"
+                      className="w-full h-12 rounded-xl border border-gray-200 bg-gray-50 pl-12 pr-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all"
                     />
                   </div>
                 </div>
-                <div className="flex gap-3">
+
+                <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setShowPhoneModal(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium">Cancel</button>
                   <button type="submit" className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold flex items-center justify-center gap-2">
-                    <MessageCircle className="w-4 h-4" /> Order
+                    <MessageCircle className="w-4 h-4" /> Place Order
                   </button>
                 </div>
               </form>
