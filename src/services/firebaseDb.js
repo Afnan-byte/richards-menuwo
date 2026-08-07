@@ -325,7 +325,7 @@ export const getSettings = async (tenantId) => {
     console.warn("Global whatsappNumber fallback check notice:", e);
   }
 
-  return { whatsappNumber: '' };
+  return { whatsappNumber: '918089685278' };
 };
 
 export const saveSettings = async (tenantId, settingsData) => {

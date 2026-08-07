@@ -138,7 +138,7 @@ export default function GuestMenu() {
     const encodedMessage = encodeURIComponent(message);
     let targetNumber = formatWhatsAppNumber(whatsappNumber);
 
-    // If targetNumber was not loaded yet, attempt on-the-fly fetch
+    // If targetNumber was not loaded yet, attempt on-the-fly fetch or fallback to default admin number
     if (!targetNumber) {
       try {
         const freshSettings = await getSettings(resolvedTenant || tenantId);
@@ -148,7 +148,10 @@ export default function GuestMenu() {
       }
     }
 
-    // Log order in Firestore regardless of WhatsApp setup
+    // Ultimate fallback if still missing
+    const finalTargetNumber = targetNumber || '918089685278';
+
+    // Log order in Firestore asynchronously
     try {
       await saveOrder(resolvedTenant || tenantId, {
         roomId,
@@ -166,13 +169,9 @@ export default function GuestMenu() {
     setCustomerPhone('');
     setSpecialInstructions('');
 
-    if (targetNumber) {
-      toast.success('Redirecting to WhatsApp...');
-      const waUrl = `https://api.whatsapp.com/send?phone=${targetNumber}&text=${encodedMessage}`;
-      window.location.href = waUrl;
-    } else {
-      toast.success('Order placed successfully! Staff will fulfill your table order.');
-    }
+    toast.success('Redirecting to WhatsApp...');
+    const waUrl = `https://wa.me/${finalTargetNumber}?text=${encodedMessage}`;
+    window.location.href = waUrl;
   };
 
   if (loading) {
