@@ -124,11 +124,18 @@ export default function GuestMenu() {
       return;
     }
 
-    let message = `*New Order - Room ${roomId}*\n\n`;
+    let message = `🛎️ *NEW ROOM ORDER*\n`;
+    message += `-------------------------\n`;
+    message += `📍 *Room / Table:* ${roomId}\n`;
+    message += `📞 *Guest Contact:* +91 ${cleanCustomerDigits}\n`;
+    message += `-------------------------\n\n`;
+    message += `🛒 *ORDERED ITEMS:*\n`;
     cart.forEach(item => {
-      message += `${item.quantity}x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
+      message += `• ${item.quantity}x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
     });
-    message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
+    message += `\n-------------------------\n`;
+    message += `💰 *TOTAL AMOUNT: ₹${totalAmount.toFixed(2)}*\n`;
+    message += `-------------------------`;
 
     const encodedMessage = encodeURIComponent(message);
     let targetNumber = formatWhatsAppNumber(whatsappNumber);
