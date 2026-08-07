@@ -168,7 +168,7 @@ export default function GuestMenu() {
 
     if (targetNumber) {
       toast.success('Redirecting to WhatsApp...');
-      const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
+      const waUrl = `https://api.whatsapp.com/send?phone=${targetNumber}&text=${encodedMessage}`;
       window.location.href = waUrl;
     } else {
       toast.success('Order placed successfully! Staff will fulfill your table order.');
