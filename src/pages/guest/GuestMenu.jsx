@@ -35,6 +35,15 @@ export default function GuestMenu() {
     setHasError(false);
 
     try {
+      // Ensure guest has an active anonymous session before querying Firestore
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (anonAuthErr) {
+          console.warn("Anonymous auth pre-fetch notice:", anonAuthErr);
+        }
+      }
+
       // Resolve tenantId variations (case mismatch, UID vs shortCode)
       const effectiveId = await resolveTenantId(tenantId);
       setResolvedTenant(effectiveId || tenantId);
@@ -49,21 +58,6 @@ export default function GuestMenu() {
         let cats = catsRes.status === 'fulfilled' ? catsRes.value : [];
         let items = itemsRes.status === 'fulfilled' ? itemsRes.value : [];
         let settings = settingsRes.status === 'fulfilled' ? settingsRes.value : {};
-
-        // If items query failed due to permissions or returned empty, attempt anonymous sign in & retry
-        if ((itemsRes.status === 'rejected' || items.length === 0) && !auth.currentUser) {
-          try {
-            await signInAnonymously(auth);
-            const retryItems = await getMenuItems(targetId);
-            const retryCats = await getCategories(targetId);
-            const retrySettings = await getSettings(targetId);
-            if (retryItems.length > 0) items = retryItems;
-            if (retryCats.length > 0) cats = retryCats;
-            if (retrySettings.whatsappNumber) settings = retrySettings;
-          } catch (anonErr) {
-            console.warn('Anonymous auth fallback notice:', anonErr);
-          }
-        }
 
         return { cats, items, settings };
       };
@@ -137,16 +131,19 @@ export default function GuestMenu() {
     message += `\n*Total: ₹${totalAmount.toFixed(2)}*`;
 
     const encodedMessage = encodeURIComponent(message);
-    const targetNumber = formatWhatsAppNumber(whatsappNumber);
+    let targetNumber = formatWhatsAppNumber(whatsappNumber);
 
+    // If targetNumber was not loaded yet, attempt on-the-fly fetch
     if (!targetNumber) {
-      toast.error('The admin has not configured a WhatsApp contact number yet.');
-      return;
+      try {
+        const freshSettings = await getSettings(resolvedTenant || tenantId);
+        targetNumber = formatWhatsAppNumber(freshSettings.whatsappNumber || import.meta.env.VITE_WHATSAPP_NUMBER || '');
+      } catch (err) {
+        console.warn("On-the-fly settings fetch notice:", err);
+      }
     }
 
-    const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
-
-    // Log order in Firestore before redirecting
+    // Always log order in Firestore regardless of WhatsApp setup
     try {
       await saveOrder(resolvedTenant || tenantId, {
         roomId,
@@ -161,10 +158,14 @@ export default function GuestMenu() {
     setCart([]);
     setShowPhoneModal(false);
     setCustomerPhone('');
-    toast.success('Redirecting to WhatsApp...');
-    
-    // Direct location redirect works reliably on iOS Safari & Android Chrome without popup blocking
-    window.location.href = waUrl;
+
+    if (targetNumber) {
+      toast.success('Redirecting to WhatsApp...');
+      const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
+      window.location.href = waUrl;
+    } else {
+      toast.success('Order placed successfully! Staff will fulfill your room order.');
+    }
   };
 
   if (loading) {

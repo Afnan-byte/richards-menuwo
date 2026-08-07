@@ -228,18 +228,28 @@ export const getSettings = async (tenantId) => {
     return null;
   };
 
-  // 1. Check exact tenantId
+  // 1. Check exact tenantId in restaurants
   let foundNumber = await checkDocRef(getTenantSettingsRef(tenantId));
   if (foundNumber) return { whatsappNumber: foundNumber };
 
-  // 2. Check uppercase tenantId
+  // 2. Check uppercase tenantId in restaurants
   const upperTenantId = tenantId.toUpperCase();
   if (upperTenantId !== tenantId) {
     foundNumber = await checkDocRef(getTenantSettingsRef(upperTenantId));
     if (foundNumber) return { whatsappNumber: foundNumber };
   }
 
-  // 3. Search users collection by restaurantId or document ID (UID)
+  // 3. Check settings collection (settings/tenantId, settings/global)
+  foundNumber = await checkDocRef(doc(db, 'settings', tenantId));
+  if (foundNumber) return { whatsappNumber: foundNumber };
+
+  foundNumber = await checkDocRef(doc(db, 'settings', upperTenantId));
+  if (foundNumber) return { whatsappNumber: foundNumber };
+
+  foundNumber = await checkDocRef(doc(db, 'settings', 'global'));
+  if (foundNumber) return { whatsappNumber: foundNumber };
+
+  // 4. Search users collection by restaurantId or document ID (UID)
   try {
     const usersRef = collection(db, 'users');
 
@@ -275,7 +285,7 @@ export const getSettings = async (tenantId) => {
     console.warn("Settings user lookup notice:", e);
   }
 
-  // 4. Try resolved tenantId
+  // 5. Try resolved tenantId
   try {
     const resolvedId = await resolveTenantId(tenantId);
     if (resolvedId && resolvedId !== tenantId && resolvedId !== upperTenantId) {
@@ -284,6 +294,21 @@ export const getSettings = async (tenantId) => {
     }
   } catch (e) {
     console.warn("Settings resolved lookup notice:", e);
+  }
+
+  // 6. Global fallback: check if any document in users or restaurants has a whatsappNumber populated
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    for (const d of usersSnap.docs) {
+      if (d.data().whatsappNumber) return { whatsappNumber: d.data().whatsappNumber };
+    }
+
+    const restSnap = await getDocs(collection(db, 'restaurants'));
+    for (const d of restSnap.docs) {
+      if (d.data().whatsappNumber) return { whatsappNumber: d.data().whatsappNumber };
+    }
+  } catch (e) {
+    console.warn("Global whatsappNumber fallback check notice:", e);
   }
 
   return { whatsappNumber: '' };
@@ -297,12 +322,21 @@ export const saveSettings = async (tenantId, settingsData) => {
     updatedAt: serverTimestamp()
   };
 
+  // Save globally to settings/global
+  try {
+    await setDoc(doc(db, 'settings', 'global'), payload, { merge: true });
+  } catch (e) {
+    console.warn("Save to settings/global notice:", e);
+  }
+
   if (tenantId) {
     await setDoc(getTenantSettingsRef(tenantId), payload, { merge: true });
+    await setDoc(doc(db, 'settings', tenantId), payload, { merge: true });
 
     const upper = tenantId.toUpperCase();
     if (upper !== tenantId) {
       await setDoc(getTenantSettingsRef(upper), payload, { merge: true });
+      await setDoc(doc(db, 'settings', upper), payload, { merge: true });
     }
   }
 
